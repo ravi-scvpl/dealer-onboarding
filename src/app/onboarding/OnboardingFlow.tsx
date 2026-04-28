@@ -1,0 +1,592 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import usePlacesAutocomplete, {
+  getGeocode,
+  getLatLng,
+} from "use-places-autocomplete";
+import { 
+  Building2, MapPin, Camera, CheckCircle, 
+  ChevronRight, ChevronLeft, Upload, Loader2,
+  Trash2, Crosshair, Info, Search
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import { Layout } from '@/components/Layout';
+import { cn } from '@/lib/utils';
+import { analyzeImageAction, submitOnboardingAction } from './actions';
+import { compressImage } from '@/lib/imageCompression'; // Need to create this helper
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/lib/firebase';
+
+// --- Constants & Categories ---
+const GMB_CATEGORIES = [
+  { value: 'electronics_store', label: 'Electronics Store', group: 'Electronics' },
+  { value: 'cell_phone_store', label: 'Cell Phone Store', group: 'Electronics' },
+  { value: 'computer_store', label: 'Computer Store', group: 'Electronics' },
+  { value: 'clothing_store', label: 'Clothing Store', group: 'Apparel' },
+  { value: 'shoe_store', label: 'Shoe Store', group: 'Apparel' },
+  { value: 'department_store', label: 'Department Store', group: 'FMCG' },
+  { value: 'grocery_store', label: 'Grocery Store', group: 'FMCG' },
+  { value: 'supermarket', label: 'Supermarket', group: 'FMCG' },
+  { value: 'car_dealer', label: 'Car Dealer', group: 'Automobile' },
+  { value: 'auto_repair_shop', label: 'Auto Repair Shop', group: 'Automobile' },
+  { value: 'motorcycle_dealer', label: 'Motorcycle Dealer', group: 'Automobile' },
+];
+
+// --- Form Schemas ---
+const step1Schema = z.object({
+  storeName: z.string()
+    .min(3, 'Store name is too short')
+    .max(100, 'Store name is too long')
+    .refine(val => !/(http|https|www|.com|.in)/.test(val.toLowerCase()), 'Website URLs not allowed in name')
+    .refine(val => !/\d{10}/.test(val), 'Phone numbers not allowed in name'),
+  dealerName: z.string().min(2, 'Name is too short'),
+  category: z.string().min(1, 'Primary category is required'),
+});
+
+const step2Schema = z.object({
+  line1: z.string().min(5, 'Address is too short'),
+  landmark: z.string().optional(),
+  locality: z.string().min(3, 'Locality is required'),
+  city: z.string().min(2, 'City is required'),
+  state: z.string().min(2, 'State is required'),
+  pincode: z.string().regex(/^\d{6}$/, 'Enter valid 6-digit pincode'),
+});
+
+type Step1Data = z.infer<typeof step1Schema>;
+type Step2Data = z.infer<typeof step2Schema>;
+
+interface Props {
+    user: any; // From NextAuth
+    dealerProfile: any;
+}
+
+export default function OnboardingFlow({ user, dealerProfile }: Props) {
+  const router = useRouter();
+  const [currentStep, setCurrentStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  
+  // Data States
+  const [step1Data, setStep1Data] = useState<Step1Data | null>(null);
+  const [step2Data, setStep2Data] = useState<Step2Data | null>(null);
+  const [location, setLocation] = useState<{lat: number, lng: number, accuracy?: number} | null>(null);
+  const [images, setImages] = useState<{
+    file: Blob, 
+    type: string, 
+    preview: string,
+    analysis?: any,
+    isAnalyzing?: boolean
+  }[]>([]);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+
+  // Forms
+  const { register, handleSubmit, formState: { errors } } = useForm<Step1Data>({
+    resolver: zodResolver(step1Schema)
+  });
+
+  const { 
+    register: registerStep2, 
+    handleSubmit: handleSubmitStep2, 
+    setValue: setValueStep2,
+    formState: { errors: errors2 } 
+  } = useForm<Step2Data>({
+    resolver: zodResolver(step2Schema)
+  });
+
+  // Places Autocomplete Hook
+  const {
+    ready,
+    value: autocompleteValue,
+    suggestions: { status: autocompleteStatus, data: autocompleteData },
+    setValue: setAutocompleteValue,
+    clearSuggestions,
+  } = usePlacesAutocomplete({
+    requestOptions: {
+      componentRestrictions: { country: "in" },
+    },
+    debounce: 300,
+  });
+
+  // --- Handlers ---
+  const handleStep1 = (data: Step1Data) => {
+    setStep1Data(data);
+    setCurrentStep(2);
+  };
+
+  const handleStep2 = (data: Step2Data) => {
+    setStep2Data(data);
+    setCurrentStep(3);
+  };
+
+  const captureLocation = () => {
+    if (!navigator.geolocation) return toast.error('Geolocation not supported');
+    
+    setLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocation({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy
+        });
+        setLoading(false);
+        toast.success('Location captured exactly');
+      },
+      (err) => {
+        console.error(err);
+        setLoading(false);
+        toast.error('Permission denied. Please enable location.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) return toast.error('File too large (max 5MB)');
+    
+    setUploadingMedia(true);
+    const compressed = await compressImage(file);
+    const preview = URL.createObjectURL(compressed);
+    
+    // Add to list with "analyzing" state
+    const newImageIndex = images.length;
+    setImages(prev => [...prev, { file: compressed, type, preview, isAnalyzing: true }]);
+    setUploadingMedia(false);
+
+    try {
+      // 1. Convert to base64 for AI analysis
+      const reader = new FileReader();
+      reader.readAsDataURL(compressed);
+      reader.onloadend = async () => {
+        const base64data = reader.result as string;
+        
+        // 2. Call AI Analysis (Server Action)
+        const analysis = await analyzeImageAction(base64data, type);
+        
+        // 3. Update state with analysis
+        setImages(prev => prev.map((img, idx) => 
+          idx === newImageIndex ? { ...img, analysis, isAnalyzing: false } : img
+        ));
+
+        if (!analysis.isHighQuality) {
+            toast.error(`Image quality issue: ${analysis.issues[0]}`, { duration: 4000 });
+        } else {
+            toast.success('AI verification passed');
+        }
+      };
+    } catch (error) {
+      console.error("AI Analysis Failed:", error);
+      setImages(prev => prev.map((img, idx) => 
+        idx === newImageIndex ? { ...img, isAnalyzing: false } : img
+      ));
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const submitOnboarding = async () => {
+    if (!user || !step1Data || !step2Data || !location) return;
+    if (images.length < 1) return toast.error('Please upload at least the storefront photo');
+
+    setLoading(true);
+    try {
+      // Upload images to Firebase Storage
+      const mediaUrls = await Promise.all(
+        images.map(async (img) => {
+          // Generate a unique filename: dealerId/type-timestamp.jpg
+          const timestamp = new Date().getTime();
+          const filename = `dealers/${user.id}/${img.type}-${timestamp}.jpg`;
+          const storageRef = ref(storage, filename);
+          
+          // Upload the compressed blob
+          await uploadBytes(storageRef, img.file);
+          
+          // Get the permanent download URL
+          const downloadUrl = await getDownloadURL(storageRef);
+          
+          return {
+            url: downloadUrl,
+            type: img.type,
+            timestamp: new Date().toISOString()
+          };
+        })
+      );
+
+      const result = await submitOnboardingAction({
+        dealerId: user.id,
+        storeName: step1Data.storeName,
+        category: step1Data.category,
+        address: {
+          ...step2Data,
+          full: `${step2Data.line1}, ${step2Data.locality}, ${step2Data.city}, ${step2Data.state}, ${step2Data.pincode}`
+        },
+        location: {
+          ...location,
+          method: 'browser-gps',
+        },
+        media: mediaUrls,
+      });
+
+      if (result.success) {
+        toast.success('Onboarding submitted successfully');
+        router.push('/dashboard');
+      } else {
+        toast.error('Submission failed: ' + result.error);
+      }
+    } catch (error: any) {
+      console.error(error);
+      toast.error('Submission failed: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Address Auto-fill ---
+  const handleSelectAddress = async (description: string) => {
+    setAutocompleteValue(description, false);
+    clearSuggestions();
+
+    try {
+      const results = await getGeocode({ address: description });
+      const { lat, lng } = await getLatLng(results[0]);
+      setLocation({ lat, lng, accuracy: 10 }); 
+
+      const components = results[0].address_components;
+      const getComponent = (types: string[]) => {
+        const comp = components.find(c => types.some(t => c.types.includes(t)));
+        return comp?.long_name || '';
+      };
+
+      setValueStep2('line1', description.split(',')[0], { shouldValidate: true });
+      setValueStep2('locality', getComponent(['sublocality_level_1', 'sublocality']), { shouldValidate: true });
+      setValueStep2('city', getComponent(['locality']), { shouldValidate: true });
+      setValueStep2('state', getComponent(['administrative_area_level_1']), { shouldValidate: true });
+      const pc = getComponent(['postal_code']);
+      if (/^\d{6}$/.test(pc)) setValueStep2('pincode', pc, { shouldValidate: true });
+
+      toast.success('Address auto-filled');
+    } catch (error) {
+      toast.error('Could not parse address. Please enter manually.');
+    }
+  };
+
+  // --- Step Renders ---
+  const renderStep1 = () => (
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
+      <div className="flex items-center gap-4 mb-6">
+        <div className="w-12 h-12 bg-accent/10 rounded-2xl flex items-center justify-center text-accent">
+          <Building2 size={24} />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Basic Information</h2>
+          <p className="text-sm text-slate-500">Let's start with your store identity</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit(handleStep1)} className="space-y-4">
+        <div>
+          <label className="label-utility">Official Store Name</label>
+          <input {...register('storeName')} className="input-premium" placeholder="e.g. Agarwal Electronics" />
+          {errors.storeName && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.storeName.message}</p>}
+        </div>
+        <div>
+          <label className="label-utility">Owner / Contact Name</label>
+          <input {...register('dealerName')} className="input-premium" placeholder="Your full name" />
+          {errors.dealerName && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.dealerName.message}</p>}
+        </div>
+        <div>
+          <label className="label-utility">Business Category</label>
+          <select {...register('category')} className="input-premium appearance-none">
+            <option value="">Select Official GMB Category</option>
+            {['Electronics', 'Apparel', 'FMCG', 'Automobile'].map(group => (
+              <optgroup key={group} label={group}>
+                {GMB_CATEGORIES.filter(c => c.group === group).map(cat => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          {errors.category && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.category.message}</p>}
+        </div>
+
+        <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 mt-4">
+          Next Step <ChevronRight size={18} />
+        </button>
+      </form>
+    </motion.div>
+  );
+
+  const renderStep2 = () => (
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
+      <div className="flex items-center gap-4 mb-6">
+        <button onClick={() => setCurrentStep(1)} className="p-2 -ml-2 text-slate-400 hover:text-slate-600">
+          <ChevronLeft size={20} />
+        </button>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Store Address</h2>
+          <p className="text-sm text-slate-500">Provide accurate address details</p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="relative">
+          <label className="label-utility">Search & Auto-fill Address</label>
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              value={autocompleteValue}
+              onChange={(e) => setAutocompleteValue(e.target.value)}
+              disabled={!ready}
+              className="input-premium pl-12"
+              placeholder="Search your store location..."
+            />
+          </div>
+          
+          <AnimatePresence>
+            {autocompleteStatus === "OK" && (
+              <motion.ul 
+                initial={{ opacity: 0, y: -10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute z-50 w-full bg-white mt-1 rounded-xl shadow-xl border border-slate-100 overflow-hidden"
+              >
+                {autocompleteData.map((suggestion) => (
+                  <li 
+                    key={suggestion.place_id} 
+                    onClick={() => handleSelectAddress(suggestion.description)}
+                    className="px-4 py-3 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-50 last:border-none flex items-start gap-3"
+                  >
+                    <MapPin size={16} className="text-slate-300 mt-0.5 shrink-0" />
+                    <span className="text-slate-700 font-medium">{suggestion.description}</span>
+                  </li>
+                ))}
+              </motion.ul>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="h-px bg-slate-100 my-2" />
+
+        <form onSubmit={handleSubmitStep2(handleStep2)} className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Shop No / Street Name</label>
+            <input {...registerStep2('line1')} className="input-premium" placeholder="Building, Street" />
+            {errors2.line1 && <p className="text-xs text-red-500 mt-1">{errors2.line1.message}</p>}
+          </div>
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Landmark (Optional)</label>
+            <input {...registerStep2('landmark')} className="input-premium" placeholder="Near XYZ circle" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Locality / Area</label>
+            <input {...registerStep2('locality')} className="input-premium" placeholder="Bandra East" />
+            {errors2.locality && <p className="text-xs text-red-500 mt-1">{errors2.locality.message}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">City</label>
+            <input {...registerStep2('city')} className="input-premium" placeholder="Mumbai" />
+            {errors2.city && <p className="text-xs text-red-500 mt-1">{errors2.city.message}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">State</label>
+            <input {...registerStep2('state')} className="input-premium" placeholder="Maharashtra" />
+            {errors2.state && <p className="text-xs text-red-500 mt-1">{errors2.state.message}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Pincode</label>
+            <input {...registerStep2('pincode')} className="input-premium" placeholder="400051" />
+            {errors2.pincode && <p className="text-xs text-red-500 mt-1">{errors2.pincode.message}</p>}
+          </div>
+
+          <button type="submit" className="btn-primary col-span-2 flex items-center justify-center gap-2 mt-4">
+            Next Step <ChevronRight size={18} />
+          </button>
+        </form>
+      </div>
+    </motion.div>
+  );
+
+  const renderStep3 = () => (
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
+      <div className="flex items-center gap-4 mb-6">
+        <button onClick={() => setCurrentStep(2)} className="p-2 -ml-2 text-slate-400 hover:text-slate-600">
+          <ChevronLeft size={20} />
+        </button>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Exact Location</h2>
+          <p className="text-sm text-slate-500">Stand at the store entrance and click below</p>
+        </div>
+      </div>
+
+      <div className="card-premium border-indigo-600/10 bg-indigo-50/10 text-center py-10 shadow-inner">
+        {!location ? (
+          <div className="space-y-4">
+            <div className="w-16 h-16 bg-white border border-slate-100 rounded-2xl flex items-center justify-center mx-auto shadow-sm text-indigo-600">
+              <Crosshair size={32} />
+            </div>
+            <button onClick={captureLocation} disabled={loading} className="btn-primary w-fit mx-auto">
+              {loading ? <Loader2 className="animate-spin" /> : 'Pin Exact Location'}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl flex items-center justify-center gap-2 mx-auto w-fit text-[11px] font-bold uppercase tracking-widest border border-emerald-100">
+              <CheckCircle size={16} />
+              <span>Precise View Active</span>
+            </div>
+            <div className="text-[10px] text-slate-500 font-mono bg-white p-3 rounded-xl border border-slate-100 shadow-sm w-fit mx-auto">
+              {location.lat.toFixed(6)}, {location.lng.toFixed(6)} <br />
+              ACCURACY: ±{location.accuracy?.toFixed(1)}m
+            </div>
+            <button onClick={captureLocation} className="text-indigo-600 font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-1 mx-auto underline">
+              Recapture GPS
+            </button>
+          </div>
+        )}
+      </div>
+
+      <button onClick={() => setCurrentStep(4)} disabled={!location} className="btn-primary w-full flex items-center justify-center gap-2">
+        Next Step <ChevronRight size={18} />
+      </button>
+    </motion.div>
+  );
+
+  const renderStep4 = () => (
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
+      <div className="flex items-center gap-4 mb-6">
+        <button onClick={() => setCurrentStep(3)} className="p-2 -ml-2 text-slate-400 hover:text-slate-600">
+          <ChevronLeft size={20} />
+        </button>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Upload Photos</h2>
+          <p className="text-sm text-slate-500">Capture the best look of your store</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {[
+          { id: 'storefront', label: 'Store Front', mandatory: true },
+          { id: 'signage', label: 'Shop Board', mandatory: false },
+          { id: 'indoor', label: 'Indoor View', mandatory: false }
+        ].map((type) => {
+          const existing = images.find(img => img.type === type.id);
+          return (
+            <div key={type.id} className={cn("relative group", type.mandatory && "col-span-2")}>
+              {existing ? (
+                <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
+                  <img src={existing.preview} alt={type.label} className="w-full h-full object-cover" />
+                  
+                  <div className="absolute top-2 right-2">
+                    {existing.isAnalyzing ? (
+                      <div className="bg-white/90 backdrop-blur px-2 py-1 rounded-lg flex items-center gap-1 text-[9px] font-bold text-indigo-600 animate-pulse">
+                        <Loader2 size={10} className="animate-spin" /> ANALYZING
+                      </div>
+                    ) : existing.analysis ? (
+                      <div className={cn(
+                        "px-2 py-1 rounded-lg flex items-center gap-1 text-[9px] font-black tracking-widest border",
+                        existing.analysis.isHighQuality ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-red-50 text-red-600 border-red-100"
+                      )}>
+                        {existing.analysis.isHighQuality ? "APPROVED" : "LOW QUALITY"}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3 flex justify-between items-end">
+                    <div>
+                      <p className="text-[10px] font-black text-white uppercase tracking-widest">{type.label}</p>
+                    </div>
+                    <button onClick={() => removeImage(images.indexOf(existing))} className="p-1.5 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded-lg transition-all">
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center aspect-video bg-white border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-accent hover:bg-accent/5 transition-all">
+                  <Upload size={32} className="text-slate-300 mb-2" />
+                  <span className="text-xs font-semibold text-slate-600">{type.label}</span>
+                  {type.mandatory && <span className="text-[10px] text-red-400 mt-1">Mandatory *</span>}
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, type.id)} disabled={uploadingMedia} />
+                </label>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <button onClick={() => setCurrentStep(5)} disabled={!images.find(i => i.type === 'storefront')} className="btn-primary w-full flex items-center justify-center gap-2 mt-4">
+        Preview Submission <ChevronRight size={18} />
+      </button>
+    </motion.div>
+  );
+
+  const renderStep5 = () => (
+    <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="space-y-6">
+      <div className="flex items-center gap-4 mb-6">
+        <button onClick={() => setCurrentStep(4)} className="p-2 -ml-2 text-slate-400 hover:text-slate-600">
+          <ChevronLeft size={20} />
+        </button>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Review Submission</h2>
+          <p className="text-sm text-slate-500">Double check everything before submitting</p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="card-premium space-y-4">
+          <div>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Store Profile</h3>
+            <p className="text-lg font-bold text-slate-800">{step1Data?.storeName}</p>
+            <p className="text-sm text-slate-600">{step1Data?.category} • {step1Data?.dealerName}</p>
+          </div>
+          
+          <div className="pt-4 border-t border-slate-100">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Full Address</h3>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              {step2Data?.line1}, {step2Data?.locality}, {step2Data?.city}, {step2Data?.state} - {step2Data?.pincode}
+            </p>
+          </div>
+        </div>
+
+        <button onClick={submitOnboarding} disabled={loading} className="btn-primary w-full py-4 text-lg shadow-lg shadow-accent/20 bg-accent hover:bg-accent/90">
+          {loading ? <Loader2 className="animate-spin mx-auto" /> : 'Confirm & Submit'}
+        </button>
+      </div>
+    </motion.div>
+  );
+
+  return (
+    <Layout>
+      <div className="mb-10">
+        <div className="flex justify-between items-end mb-3">
+           <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Step {currentStep} of 5</span>
+           <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">{Math.round((currentStep / 5) * 100)}% Done</span>
+        </div>
+        <div className="h-2 w-full bg-slate-200/50 rounded-full overflow-hidden border border-slate-200/20">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${(currentStep / 5) * 100}%` }}
+            className="h-full bg-indigo-600"
+          />
+        </div>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {currentStep === 1 && renderStep1()}
+        {currentStep === 2 && renderStep2()}
+        {currentStep === 3 && renderStep3()}
+        {currentStep === 4 && renderStep4()}
+        {currentStep === 5 && renderStep5()}
+      </AnimatePresence>
+    </Layout>
+  );
+}
