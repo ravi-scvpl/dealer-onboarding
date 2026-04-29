@@ -223,7 +223,7 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
       );
 
       const result = await submitOnboardingAction({
-        dealerId: user.id,
+        dealerId: dealerProfile.id,
         storeName: step1Data.storeName,
         category: step1Data.category,
         address: {

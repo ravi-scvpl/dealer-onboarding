@@ -14,7 +14,12 @@ export async function addInviteAction(data: {
         mobileNumber: data.mobileNumber,
         dealerName: data.dealerName,
         dealerCode: data.dealerCode || 'D' + Math.floor(Math.random() * 1000),
-        brandId: 'DOTTT_HYPERLOCAL', // Default for now
+        brand: {
+          connectOrCreate: {
+            where: { id: 'default-brand' },
+            create: { id: 'default-brand', name: 'Default Brand' }
+          }
+        },
         status: 'invited',
       },
     });
