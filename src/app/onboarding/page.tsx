@@ -25,7 +25,7 @@ export default async function OnboardingPage() {
     dealerProfile = await prisma.dealer.create({
       data: {
         userId: user.id,
-        mobileNumber: '+919999004538',
+        mobileNumber: '+91' + Math.floor(1000000000 + Math.random() * 9000000000).toString(),
         dealerCode: 'MOCK-123',
         brand: {
           connectOrCreate: {

@@ -9,6 +9,7 @@ import { Layout } from '@/components/Layout';
 import { auth } from '@/lib/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { setCookie } from 'nookies';
+import { checkInvitationAction } from './actions';
 
 export default function LoginPage() {
   const [phone, setPhone] = useState('');
@@ -19,6 +20,11 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
+    // Disable app verification for testing on localhost
+    if (process.env.NODE_ENV === 'development') {
+      auth.settings.appVerificationDisabledForTesting = true;
+    }
+
     // Initialize RecaptchaVerifier
     if (!window.recaptchaVerifier) {
       window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
@@ -38,6 +44,15 @@ export default function LoginPage() {
     const phoneNumber = `+91${phone}`;
     
     try {
+      // 1. Verify invitation in database
+      const inviteCheck = await checkInvitationAction(phoneNumber);
+      if (!inviteCheck.success) {
+        toast.error(inviteCheck.error || 'Invitation verification failed');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Proceed with Firebase OTP if invited
       const appVerifier = window.recaptchaVerifier;
       const result = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
       setConfirmationResult(result);
@@ -49,7 +64,9 @@ export default function LoginPage() {
       // Reset recaptcha on error
       if (window.recaptchaVerifier) {
         window.recaptchaVerifier.render().then((widgetId: any) => {
-          window.grecaptcha.reset(widgetId);
+          if (window.grecaptcha) {
+            window.grecaptcha.reset(widgetId);
+          }
         });
       }
     } finally {
