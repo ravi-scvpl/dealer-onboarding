@@ -3,12 +3,17 @@ import { prisma } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 
-export default async function OnboardingPage() {
+interface Props {
+  params: Promise<{ brandId: string }>;
+}
+
+export default async function OnboardingPage({ params }: Props) {
+  const { brandId } = await params;
   const cookieStore = await cookies();
   const userIdCookie = cookieStore.get('userId');
   
   if (!userIdCookie?.value) {
-    redirect('/login');
+    redirect(`/${brandId}/login`);
   }
 
   const user = { id: userIdCookie.value, email: '' }; // Firebase user ID
@@ -18,20 +23,20 @@ export default async function OnboardingPage() {
     where: { userId: user.id },
   });
 
-  // If no profile, create a default one (similar to the original logic that checks invites)
+  // If no profile, create one linked to the selected brand
   if (!dealerProfile) {
-    // In a real app, you'd check dealerInvites table here.
-    // For the demo, we'll auto-create one.
+    const selectedBrandId = brandId || cookieStore.get('selected_brand_id')?.value || 'default-brand';
+    
+    // Check if we have an invitation for this user
+    // (This is a simplified version of the check invitation logic)
+    
     dealerProfile = await prisma.dealer.create({
       data: {
         userId: user.id,
         mobileNumber: '+91' + Math.floor(1000000000 + Math.random() * 9000000000).toString(),
-        dealerCode: 'MOCK-123',
+        dealerCode: 'D' + Math.floor(Math.random() * 10000).toString(),
         brand: {
-          connectOrCreate: {
-            where: { id: 'default-brand' },
-            create: { id: 'default-brand', name: 'Default Brand' }
-          }
+          connect: { id: selectedBrandId }
         },
       }
     });

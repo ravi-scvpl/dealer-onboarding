@@ -11,7 +11,11 @@ import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'fi
 import { setCookie } from 'nookies';
 import { checkInvitationAction } from './actions';
 
-export default function LoginPage() {
+interface Props {
+  params: Promise<{ brandId: string }>;
+}
+
+export default function LoginPage({ params }: Props) {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
@@ -20,12 +24,24 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Disable app verification for testing on localhost
+    // 1. Handle Brand context from Params
+    const initBrand = async () => {
+      const { brandId } = await params;
+      if (brandId) {
+        setCookie(null, 'selected_brand_id', brandId, {
+          maxAge: 60 * 60 * 24, // 1 day
+          path: '/',
+        });
+      }
+    };
+    initBrand();
+
+    // 2. Disable app verification for testing on localhost
     if (process.env.NODE_ENV === 'development') {
       auth.settings.appVerificationDisabledForTesting = true;
     }
 
-    // Initialize RecaptchaVerifier
+    // 3. Initialize RecaptchaVerifier
     if (!window.recaptchaVerifier) {
       window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         'size': 'invisible',
@@ -44,8 +60,9 @@ export default function LoginPage() {
     const phoneNumber = `+91${phone}`;
     
     try {
-      // 1. Verify invitation in database
-      const inviteCheck = await checkInvitationAction(phoneNumber);
+      // 1. Verify invitation in database for this specific brand
+      const { brandId } = await params;
+      const inviteCheck = await checkInvitationAction(phoneNumber, brandId);
       if (!inviteCheck.success) {
         toast.error(inviteCheck.error || 'Invitation verification failed');
         setLoading(false);
@@ -91,7 +108,8 @@ export default function LoginPage() {
       });
       
       toast.success('Login successful');
-      router.push('/');
+      const { brandId } = await params;
+      router.push(`/${brandId}/onboarding`);
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || 'Invalid OTP');

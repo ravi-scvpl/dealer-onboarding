@@ -39,7 +39,8 @@ export async function analyzeStoreImage(base64Image: string, expectedType: strin
               1. Classify if the image actually matches the claim.
               2. Assess technical quality: blurriness, lighting, and framing.
               3. Detect if the store visibility is complete or obstructed.
-              4. Provide a quality score from 0-100.
+              4. IMPORTANT: Check if the Store Name is clearly visible in the image. "In Image, Store Name should clearly visible. It will expedite the verification process."
+              5. Provide a quality score from 0-100.
               
               Return the analysis in strict JSON format.`,
             },

@@ -556,6 +556,27 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
           const existing = images.find(img => img.type === type.id);
           return (
             <div key={type.id} className={cn("relative group", type.mandatory && "col-span-2")}>
+              {existing && !existing.isAnalyzing && existing.analysis && !existing.analysis.isHighQuality && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }} 
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-3 p-3 bg-red-50 border border-red-100 rounded-xl"
+                >
+                  <div className="flex items-center gap-2 mb-1.5 text-red-600">
+                    <AlertCircle size={14} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Rejection Reasons</span>
+                  </div>
+                  <ul className="space-y-1">
+                    {existing.analysis.issues.map((issue: string, i: number) => (
+                      <li key={i} className="text-[11px] text-red-500 font-medium leading-tight flex items-start gap-1.5">
+                        <span className="mt-1 w-1 h-1 bg-red-400 rounded-full shrink-0" />
+                        {issue}
+                      </li>
+                    ))}
+                  </ul>
+                </motion.div>
+              )}
+              
               {existing ? (
                 <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
                   <img src={existing.preview} alt={type.label} className="w-full h-full object-cover" />
@@ -570,7 +591,7 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
                         "px-2 py-1 rounded-lg flex items-center gap-1 text-[9px] font-black tracking-widest border",
                         existing.analysis.isHighQuality ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-red-50 text-red-600 border-red-100"
                       )}>
-                        {existing.analysis.isHighQuality ? "APPROVED" : "LOW QUALITY"}
+                        {existing.analysis.isHighQuality ? "APPROVED" : "REJECTED"}
                       </div>
                     ) : null}
                   </div>

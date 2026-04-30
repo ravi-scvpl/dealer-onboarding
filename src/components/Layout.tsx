@@ -49,11 +49,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       </main>
 
       <footer className="px-10 py-8 bg-white border-t border-slate-200 flex flex-col items-center gap-6 text-slate-500 text-[11px] font-medium">
-        <div className="flex gap-4 items-center">
-          <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> Systems Operational</span>
-          <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-          <span>Security Verified by PostgreSQL</span>
-        </div>
 
         {user?.email === 'sangeetjass@gmail.com' && (
           <Link
@@ -63,7 +58,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             Admin Panel
           </Link>
         )}
-        <p className="opacity-60">Powered by <strong>Dottt Hyperlocal Engine</strong> • v3.0.0 (Next.js)</p>
+        <p className="opacity-60">Powered by <strong>Dottt Hyperlocal Engine</strong></p>
       </footer>
     </div>
   );
