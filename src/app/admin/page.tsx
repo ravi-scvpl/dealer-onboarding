@@ -1,8 +1,15 @@
 import AdminPanel from './AdminPanel';
+import AdminLogin from './AdminLogin';
 import { prisma } from '@/lib/db';
+import { cookies } from 'next/headers';
 
 export default async function AdminPage() {
-  // In a real app, you'd check if the user is an admin here
+  const cookieStore = await cookies();
+  const isAuthenticated = cookieStore.get('admin_session')?.value === 'authenticated';
+
+  if (!isAuthenticated) {
+    return <AdminLogin />;
+  }
   
   const invites = await prisma.dealerInvite.findMany({
     orderBy: { createdAt: 'desc' },

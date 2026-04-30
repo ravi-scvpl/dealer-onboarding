@@ -6,7 +6,8 @@ import { motion } from 'framer-motion';
 import { Plus, Check, X, Users, FileText, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
-import { addInviteAction, updateSubmissionStatusAction } from './actions';
+import { addInviteAction, updateSubmissionStatusAction, adminLogoutAction } from './actions';
+import { LogOut } from 'lucide-react';
 
 interface Props {
   invites: any[];
@@ -67,6 +68,16 @@ export default function AdminPanel({ invites, submissions }: Props) {
                         <h1 className="text-2xl font-bold text-slate-900">Admin View</h1>
                         <p className="text-xs text-slate-500 font-medium">Manage invitations and reviews</p>
                     </div>
+                    <button 
+                        onClick={async () => {
+                            await adminLogoutAction();
+                            window.location.reload();
+                        }}
+                        className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                        title="Logout"
+                    >
+                        <LogOut size={20} />
+                    </button>
                 </div>
 
                 <div className="flex bg-slate-200 p-1 rounded-xl w-fit">

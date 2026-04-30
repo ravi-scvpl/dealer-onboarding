@@ -2,6 +2,30 @@
 
 import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
+
+export async function adminLoginAction(formData: FormData) {
+  const username = formData.get('username') as string;
+  const password = formData.get('password') as string;
+
+  if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
+    const cookieStore = await cookies();
+    cookieStore.set('admin_session', 'authenticated', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24, // 1 day
+    });
+    return { success: true };
+  }
+  return { success: false, error: 'Invalid credentials' };
+}
+
+export async function adminLogoutAction() {
+  const cookieStore = await cookies();
+  cookieStore.delete('admin_session');
+  revalidatePath('/admin');
+}
 
 export async function addInviteAction(data: {
   mobileNumber: string;

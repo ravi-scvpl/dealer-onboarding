@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import Script from 'next/script';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -22,21 +23,72 @@ import { analyzeImageAction, submitOnboardingAction } from './actions';
 import { compressImage } from '@/lib/imageCompression'; // Need to create this helper
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
+import categories from '@/lib/category';
 
-// --- Constants & Categories ---
-const GMB_CATEGORIES = [
-  { value: 'electronics_store', label: 'Electronics Store', group: 'Electronics' },
-  { value: 'cell_phone_store', label: 'Cell Phone Store', group: 'Electronics' },
-  { value: 'computer_store', label: 'Computer Store', group: 'Electronics' },
-  { value: 'clothing_store', label: 'Clothing Store', group: 'Apparel' },
-  { value: 'shoe_store', label: 'Shoe Store', group: 'Apparel' },
-  { value: 'department_store', label: 'Department Store', group: 'FMCG' },
-  { value: 'grocery_store', label: 'Grocery Store', group: 'FMCG' },
-  { value: 'supermarket', label: 'Supermarket', group: 'FMCG' },
-  { value: 'car_dealer', label: 'Car Dealer', group: 'Automobile' },
-  { value: 'auto_repair_shop', label: 'Auto Repair Shop', group: 'Automobile' },
-  { value: 'motorcycle_dealer', label: 'Motorcycle Dealer', group: 'Automobile' },
-];
+// --- Sub-components ---
+interface AddressSearchProps {
+  onAddressSelect: (address: string) => void;
+}
+
+const AddressSearch = ({ onAddressSelect }: AddressSearchProps) => {
+  const {
+    ready,
+    value,
+    suggestions: { status, data },
+    setValue,
+    clearSuggestions,
+  } = usePlacesAutocomplete({
+    requestOptions: {
+      componentRestrictions: { country: "in" },
+    },
+    debounce: 500, // Debounced as requested
+  });
+
+  const handleSelect = async (address: string) => {
+    setValue(address, false);
+    clearSuggestions();
+    onAddressSelect(address);
+  };
+
+  return (
+    <div className="relative">
+      <label className="label-utility">Search & Auto-fill Address</label>
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+        <input 
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          disabled={!ready}
+          className="input-premium pl-12"
+          placeholder="Search your store location..."
+        />
+      </div>
+      
+      <AnimatePresence>
+        {status === "OK" && (
+          <motion.ul 
+            initial={{ opacity: 0, y: -10 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute z-50 w-full bg-white mt-1 rounded-xl shadow-xl border border-slate-100 overflow-hidden"
+          >
+            {data.map((suggestion) => (
+              <li 
+                key={suggestion.place_id} 
+                onClick={() => handleSelect(suggestion.description)}
+                className="px-4 py-3 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-50 last:border-none flex items-start gap-3"
+              >
+                <MapPin size={16} className="text-slate-300 mt-0.5 shrink-0" />
+                <span className="text-slate-700 font-medium">{suggestion.description}</span>
+              </li>
+            ))}
+          </motion.ul>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 
 // --- Form Schemas ---
 const step1Schema = z.object({
@@ -70,6 +122,13 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.google) {
+      setGoogleMapsLoaded(true);
+    }
+  }, []);
   
   // Data States
   const [step1Data, setStep1Data] = useState<Step1Data | null>(null);
@@ -85,9 +144,27 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
   const [uploadingMedia, setUploadingMedia] = useState(false);
 
   // Forms
-  const { register, handleSubmit, formState: { errors } } = useForm<Step1Data>({
+  const { register, handleSubmit, formState: { errors }, setValue: setValueStep1 } = useForm<Step1Data>({
     resolver: zodResolver(step1Schema)
   });
+
+  // Category Autocomplete State
+  const [categorySearch, setCategorySearch] = useState('');
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  
+  const filteredCategories = React.useMemo(() => {
+    if (!categorySearch || categorySearch.length < 2) return [];
+    const searchLower = categorySearch.toLowerCase();
+    return categories
+      .filter(c => c.displayName.toLowerCase().includes(searchLower))
+      .slice(0, 50);
+  }, [categorySearch]);
+
+  const handleSelectCategory = (displayName: string) => {
+    setValueStep1('category', displayName, { shouldValidate: true });
+    setCategorySearch(displayName);
+    setShowCategoryDropdown(false);
+  };
 
   const { 
     register: registerStep2, 
@@ -98,19 +175,8 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
     resolver: zodResolver(step2Schema)
   });
 
-  // Places Autocomplete Hook
-  const {
-    ready,
-    value: autocompleteValue,
-    suggestions: { status: autocompleteStatus, data: autocompleteData },
-    setValue: setAutocompleteValue,
-    clearSuggestions,
-  } = usePlacesAutocomplete({
-    requestOptions: {
-      componentRestrictions: { country: "in" },
-    },
-    debounce: 300,
-  });
+  // Moved usePlacesAutocomplete to AddressSearch sub-component to ensure it only runs when Google Maps is ready
+
 
   // --- Handlers ---
   const handleStep1 = (data: Step1Data) => {
@@ -253,9 +319,6 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
 
   // --- Address Auto-fill ---
   const handleSelectAddress = async (description: string) => {
-    setAutocompleteValue(description, false);
-    clearSuggestions();
-
     try {
       const results = await getGeocode({ address: description });
       const { lat, lng } = await getLatLng(results[0]);
@@ -304,18 +367,49 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
           <input {...register('dealerName')} className="input-premium" placeholder="Your full name" />
           {errors.dealerName && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.dealerName.message}</p>}
         </div>
-        <div>
+        <div className="relative">
           <label className="label-utility">Business Category</label>
-          <select {...register('category')} className="input-premium appearance-none">
-            <option value="">Select Official GMB Category</option>
-            {['Electronics', 'Apparel', 'FMCG', 'Automobile'].map(group => (
-              <optgroup key={group} label={group}>
-                {GMB_CATEGORIES.filter(c => c.group === group).map(cat => (
-                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+            <input type="hidden" {...register('category')} />
+            <input 
+              value={categorySearch}
+              onChange={(e) => {
+                setCategorySearch(e.target.value);
+                setShowCategoryDropdown(true);
+                setValueStep1('category', e.target.value, { shouldValidate: true });
+              }}
+              onFocus={() => setShowCategoryDropdown(true)}
+              onBlur={() => setTimeout(() => setShowCategoryDropdown(false), 200)}
+              className="input-premium pl-12"
+              placeholder="Search category (e.g., Electronics)"
+            />
+          </div>
+          
+          <AnimatePresence>
+            {showCategoryDropdown && filteredCategories.length > 0 && (
+              <motion.ul 
+                initial={{ opacity: 0, y: -10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute z-50 w-full bg-white mt-1 rounded-xl shadow-xl border border-slate-100 overflow-hidden max-h-60 overflow-y-auto"
+              >
+                {filteredCategories.map((cat) => (
+                  <li 
+                    key={cat.name} 
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleSelectCategory(cat.displayName);
+                    }}
+                    className="px-4 py-3 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-50 last:border-none flex items-start gap-3"
+                  >
+                    <Building2 size={16} className="text-slate-300 mt-0.5 shrink-0" />
+                    <span className="text-slate-700 font-medium">{cat.displayName}</span>
+                  </li>
                 ))}
-              </optgroup>
-            ))}
-          </select>
+              </motion.ul>
+            )}
+          </AnimatePresence>
           {errors.category && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.category.message}</p>}
         </div>
 
@@ -339,41 +433,21 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
       </div>
 
       <div className="space-y-4">
-        <div className="relative">
-          <label className="label-utility">Search & Auto-fill Address</label>
+        {googleMapsLoaded ? (
+          <AddressSearch onAddressSelect={handleSelectAddress} />
+        ) : (
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              value={autocompleteValue}
-              onChange={(e) => setAutocompleteValue(e.target.value)}
-              disabled={!ready}
-              className="input-premium pl-12"
-              placeholder="Search your store location..."
-            />
+            <label className="label-utility">Search & Auto-fill Address</label>
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+              <input 
+                disabled
+                className="input-premium pl-12"
+                placeholder="Loading map services..."
+              />
+            </div>
           </div>
-          
-          <AnimatePresence>
-            {autocompleteStatus === "OK" && (
-              <motion.ul 
-                initial={{ opacity: 0, y: -10 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                exit={{ opacity: 0, y: -10 }}
-                className="absolute z-50 w-full bg-white mt-1 rounded-xl shadow-xl border border-slate-100 overflow-hidden"
-              >
-                {autocompleteData.map((suggestion) => (
-                  <li 
-                    key={suggestion.place_id} 
-                    onClick={() => handleSelectAddress(suggestion.description)}
-                    className="px-4 py-3 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-50 last:border-none flex items-start gap-3"
-                  >
-                    <MapPin size={16} className="text-slate-300 mt-0.5 shrink-0" />
-                    <span className="text-slate-700 font-medium">{suggestion.description}</span>
-                  </li>
-                ))}
-              </motion.ul>
-            )}
-          </AnimatePresence>
-        </div>
+        )}
 
         <div className="h-px bg-slate-100 my-2" />
 
@@ -523,7 +597,11 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
         })}
       </div>
 
-      <button onClick={() => setCurrentStep(5)} disabled={!images.find(i => i.type === 'storefront')} className="btn-primary w-full flex items-center justify-center gap-2 mt-4">
+      <button 
+        onClick={() => setCurrentStep(5)} 
+        disabled={!images.find(i => i.type === 'storefront')?.analysis?.isHighQuality} 
+        className="btn-primary w-full flex items-center justify-center gap-2 mt-4"
+      >
         Preview Submission <ChevronRight size={18} />
       </button>
     </motion.div>
@@ -566,6 +644,11 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
 
   return (
     <Layout>
+      <Script 
+        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&loading=async&callback=Function.prototype`}
+        strategy="afterInteractive"
+        onLoad={() => setGoogleMapsLoaded(true)}
+      />
       <div className="mb-10">
         <div className="flex justify-between items-end mb-3">
            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Step {currentStep} of 5</span>
