@@ -14,7 +14,7 @@ import usePlacesAutocomplete, {
 import { 
   Building2, MapPin, Camera, CheckCircle, 
   ChevronRight, ChevronLeft, Upload, Loader2,
-  Trash2, Crosshair, Info, Search
+  Trash2, Crosshair, Info, Search, AlertCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Layout } from '@/components/Layout';
