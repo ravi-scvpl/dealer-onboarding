@@ -11,8 +11,8 @@ import usePlacesAutocomplete, {
   getGeocode,
   getLatLng,
 } from "use-places-autocomplete";
-import { 
-  Building2, MapPin, Camera, CheckCircle, 
+import {
+  Building2, MapPin, Camera, CheckCircle,
   ChevronRight, ChevronLeft, Upload, Loader2,
   Trash2, Crosshair, Info, Search, AlertCircle
 } from 'lucide-react';
@@ -55,7 +55,7 @@ const AddressSearch = ({ onAddressSelect }: AddressSearchProps) => {
       <label className="label-utility">Search & Auto-fill Address</label>
       <div className="relative">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
-        <input 
+        <input
           value={value}
           onChange={(e) => setValue(e.target.value)}
           disabled={!ready}
@@ -63,18 +63,18 @@ const AddressSearch = ({ onAddressSelect }: AddressSearchProps) => {
           placeholder="Search your store location..."
         />
       </div>
-      
+
       <AnimatePresence>
         {status === "OK" && (
-          <motion.ul 
-            initial={{ opacity: 0, y: -10 }} 
-            animate={{ opacity: 1, y: 0 }} 
+          <motion.ul
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             className="absolute z-50 w-full bg-white mt-1 rounded-xl shadow-xl border border-slate-100 overflow-hidden"
           >
             {data.map((suggestion) => (
-              <li 
-                key={suggestion.place_id} 
+              <li
+                key={suggestion.place_id}
                 onClick={() => handleSelect(suggestion.description)}
                 className="px-4 py-3 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-50 last:border-none flex items-start gap-3"
               >
@@ -114,8 +114,8 @@ type Step1Data = z.infer<typeof step1Schema>;
 type Step2Data = z.infer<typeof step2Schema>;
 
 interface Props {
-    user: any; // From NextAuth
-    dealerProfile: any;
+  user: any; // From NextAuth
+  dealerProfile: any;
 }
 
 export default function OnboardingFlow({ user, dealerProfile }: Props) {
@@ -129,14 +129,14 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
       setGoogleMapsLoaded(true);
     }
   }, []);
-  
+
   // Data States
   const [step1Data, setStep1Data] = useState<Step1Data | null>(null);
   const [step2Data, setStep2Data] = useState<Step2Data | null>(null);
-  const [location, setLocation] = useState<{lat: number, lng: number, accuracy?: number} | null>(null);
+  const [location, setLocation] = useState<{ lat: number, lng: number, accuracy?: number } | null>(null);
   const [images, setImages] = useState<{
-    file: Blob, 
-    type: string, 
+    file: Blob,
+    type: string,
     preview: string,
     analysis?: any,
     isAnalyzing?: boolean
@@ -151,7 +151,7 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
   // Category Autocomplete State
   const [categorySearch, setCategorySearch] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-  
+
   const filteredCategories = React.useMemo(() => {
     if (!categorySearch || categorySearch.length < 2) return [];
     const searchLower = categorySearch.toLowerCase();
@@ -166,11 +166,11 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
     setShowCategoryDropdown(false);
   };
 
-  const { 
-    register: registerStep2, 
-    handleSubmit: handleSubmitStep2, 
+  const {
+    register: registerStep2,
+    handleSubmit: handleSubmitStep2,
     setValue: setValueStep2,
-    formState: { errors: errors2 } 
+    formState: { errors: errors2 }
   } = useForm<Step2Data>({
     resolver: zodResolver(step2Schema)
   });
@@ -191,7 +191,7 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
 
   const captureLocation = () => {
     if (!navigator.geolocation) return toast.error('Geolocation not supported');
-    
+
     setLoading(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -217,11 +217,11 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) return toast.error('File too large (max 5MB)');
-    
+
     setUploadingMedia(true);
     const compressed = await compressImage(file);
     const preview = URL.createObjectURL(compressed);
-    
+
     // Add to list with "analyzing" state
     const newImageIndex = images.length;
     setImages(prev => [...prev, { file: compressed, type, preview, isAnalyzing: true }]);
@@ -233,24 +233,24 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
       reader.readAsDataURL(compressed);
       reader.onloadend = async () => {
         const base64data = reader.result as string;
-        
+
         // 2. Call AI Analysis (Server Action)
         const analysis = await analyzeImageAction(base64data, type);
-        
+
         // 3. Update state with analysis
-        setImages(prev => prev.map((img, idx) => 
+        setImages(prev => prev.map((img, idx) =>
           idx === newImageIndex ? { ...img, analysis, isAnalyzing: false } : img
         ));
 
         if (!analysis.isHighQuality) {
-            toast.error(`Image quality issue: ${analysis.issues[0]}`, { duration: 4000 });
+          toast.error(`Image quality issue: ${analysis.issues[0]}`, { duration: 4000 });
         } else {
-            toast.success('AI verification passed');
+          toast.success('AI verification passed');
         }
       };
     } catch (error) {
       console.error("AI Analysis Failed:", error);
-      setImages(prev => prev.map((img, idx) => 
+      setImages(prev => prev.map((img, idx) =>
         idx === newImageIndex ? { ...img, isAnalyzing: false } : img
       ));
     }
@@ -273,13 +273,13 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
           const timestamp = new Date().getTime();
           const filename = `dealers/${user.id}/${img.type}-${timestamp}.jpg`;
           const storageRef = ref(storage, filename);
-          
+
           // Upload the compressed blob
           await uploadBytes(storageRef, img.file);
-          
+
           // Get the permanent download URL
           const downloadUrl = await getDownloadURL(storageRef);
-          
+
           return {
             url: downloadUrl,
             type: img.type,
@@ -322,7 +322,7 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
     try {
       const results = await getGeocode({ address: description });
       const { lat, lng } = await getLatLng(results[0]);
-      setLocation({ lat, lng, accuracy: 10 }); 
+      setLocation({ lat, lng, accuracy: 10 });
 
       const components = results[0].address_components;
       const getComponent = (types: string[]) => {
@@ -372,7 +372,7 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
             <input type="hidden" {...register('category')} />
-            <input 
+            <input
               value={categorySearch}
               onChange={(e) => {
                 setCategorySearch(e.target.value);
@@ -385,18 +385,18 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
               placeholder="Search category (e.g., Electronics)"
             />
           </div>
-          
+
           <AnimatePresence>
             {showCategoryDropdown && filteredCategories.length > 0 && (
-              <motion.ul 
-                initial={{ opacity: 0, y: -10 }} 
-                animate={{ opacity: 1, y: 0 }} 
+              <motion.ul
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 className="absolute z-50 w-full bg-white mt-1 rounded-xl shadow-xl border border-slate-100 overflow-hidden max-h-60 overflow-y-auto"
               >
                 {filteredCategories.map((cat) => (
-                  <li 
-                    key={cat.name} 
+                  <li
+                    key={cat.name}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       handleSelectCategory(cat.displayName);
@@ -440,7 +440,7 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
             <label className="label-utility">Search & Auto-fill Address</label>
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
-              <input 
+              <input
                 disabled
                 className="input-premium pl-12"
                 placeholder="Loading map services..."
@@ -557,8 +557,8 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
           return (
             <div key={type.id} className={cn("relative group", type.mandatory && "col-span-2")}>
               {existing && !existing.isAnalyzing && existing.analysis && !existing.analysis.isHighQuality && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }} 
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="mb-3 p-3 bg-red-50 border border-red-100 rounded-xl"
                 >
@@ -576,11 +576,11 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
                   </ul>
                 </motion.div>
               )}
-              
+
               {existing ? (
                 <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
                   <img src={existing.preview} alt={type.label} className="w-full h-full object-cover" />
-                  
+
                   <div className="absolute top-2 right-2">
                     {existing.isAnalyzing ? (
                       <div className="bg-white/90 backdrop-blur px-2 py-1 rounded-lg flex items-center gap-1 text-[9px] font-bold text-indigo-600 animate-pulse">
@@ -618,9 +618,9 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
         })}
       </div>
 
-      <button 
-        onClick={() => setCurrentStep(5)} 
-        disabled={!images.find(i => i.type === 'storefront')?.analysis?.isHighQuality} 
+      <button
+        onClick={() => setCurrentStep(5)}
+        disabled={!images.find(i => i.type === 'storefront')?.analysis?.isHighQuality}
         className="btn-primary w-full flex items-center justify-center gap-2 mt-4"
       >
         Preview Submission <ChevronRight size={18} />
@@ -647,7 +647,7 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
             <p className="text-lg font-bold text-slate-800">{step1Data?.storeName}</p>
             <p className="text-sm text-slate-600">{step1Data?.category} • {step1Data?.dealerName}</p>
           </div>
-          
+
           <div className="pt-4 border-t border-slate-100">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Full Address</h3>
             <p className="text-sm text-slate-600 leading-relaxed">
@@ -665,18 +665,18 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
 
   return (
     <Layout>
-      <Script 
+      <Script
         src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&loading=async&callback=Function.prototype`}
         strategy="afterInteractive"
         onLoad={() => setGoogleMapsLoaded(true)}
       />
       <div className="mb-10">
         <div className="flex justify-between items-end mb-3">
-           <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Step {currentStep} of 5</span>
-           <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">{Math.round((currentStep / 5) * 100)}% Done</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Step {currentStep} of 5</span>
+          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">{Math.round((currentStep / 5) * 100)}% Done</span>
         </div>
         <div className="h-2 w-full bg-slate-200/50 rounded-full overflow-hidden border border-slate-200/20">
-          <motion.div 
+          <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${(currentStep / 5) * 100}%` }}
             className="h-full bg-indigo-600"
