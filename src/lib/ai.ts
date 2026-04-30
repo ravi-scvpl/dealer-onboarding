@@ -1,6 +1,6 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY || "");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export interface ImageQualityReport {
   isHighQuality: boolean;
@@ -49,19 +49,19 @@ export async function analyzeStoreImage(base64Image: string, expectedType: strin
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
-          type: Type.OBJECT,
+          type: SchemaType.OBJECT,
           properties: {
-            isHighQuality: { type: Type.BOOLEAN },
-            score: { type: Type.NUMBER },
+            isHighQuality: { type: SchemaType.BOOLEAN },
+            score: { type: SchemaType.NUMBER },
             issues: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
+              type: SchemaType.ARRAY,
+              items: { type: SchemaType.STRING },
             },
             suggestions: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
+              type: SchemaType.ARRAY,
+              items: { type: SchemaType.STRING },
             },
-            classification: { type: Type.STRING },
+            classification: { type: SchemaType.STRING },
           },
           required: ["isHighQuality", "score", "issues", "suggestions", "classification"],
         },
