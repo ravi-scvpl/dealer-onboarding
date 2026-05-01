@@ -21,7 +21,7 @@ export default function LoginPage({ params }: Props) {
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [loading, setLoading] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const [brandDetails, setBrandDetails] = useState<{name: string, logoUrl?: string | null} | null>(null);
+  const [brandDetails, setBrandDetails] = useState<{ name: string, logoUrl?: string | null } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -33,11 +33,11 @@ export default function LoginPage({ params }: Props) {
           maxAge: 60 * 60 * 24, // 1 day
           path: '/',
         });
-        
+
         // Fetch brand details
         const res = await getBrandDetailsAction(brandId);
         if (res.success && res.brand) {
-          setBrandDetails({ name: res.brand.name, logoUrl: res.brand.logoUrl });
+          setBrandDetails({ name: res.brand.name, logoUrl: res.brand.logo });
         }
       }
     };
@@ -65,7 +65,7 @@ export default function LoginPage({ params }: Props) {
 
     setLoading(true);
     const phoneNumber = `+91${phone}`;
-    
+
     try {
       // 1. Verify invitation in database for this specific brand
       const { brandId } = await params;
@@ -107,13 +107,13 @@ export default function LoginPage({ params }: Props) {
     try {
       const result = await confirmationResult.confirm(otp);
       const user = result.user;
-      
+
       // Store UID in a cookie so server components can read it
       setCookie(null, 'userId', user.uid, {
         maxAge: 30 * 24 * 60 * 60, // 30 days
         path: '/',
       });
-      
+
       toast.success('Login successful');
       const { brandId } = await params;
       router.push(`/${brandId}/onboarding`);
@@ -128,17 +128,16 @@ export default function LoginPage({ params }: Props) {
   return (
     <Layout>
       <div className="max-w-md mx-auto">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-10 flex flex-col items-center"
         >
           {brandDetails?.logoUrl && (
-            <img 
-              src={brandDetails.logoUrl} 
-              alt={brandDetails.name} 
-              className="h-16 min-w-[64px] bg-slate-50 rounded-lg mb-4 object-contain"
-              onError={(e) => console.error("Failed to load logo from URL:", brandDetails.logoUrl)}
+            <img
+              src={brandDetails.logoUrl}
+              alt={brandDetails.name}
+              className="h-16 w-auto mb-4 object-contain"
             />
           )}
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Authorized Partner Login</h1>
@@ -148,7 +147,7 @@ export default function LoginPage({ params }: Props) {
         <div className="card-premium">
           <AnimatePresence mode="wait">
             {step === 'phone' ? (
-              <motion.form 
+              <motion.form
                 key="phone-step"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -160,7 +159,7 @@ export default function LoginPage({ params }: Props) {
                   <label className="label-utility">Mobile Number</label>
                   <div className="flex border-2 border-slate-100 rounded-xl px-4 py-3 bg-slate-50 items-center gap-3 focus-within:border-indigo-600/20 focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-600/5 transition-all">
                     <span className="text-sm font-bold text-slate-400 border-r pr-3 border-slate-200">+91</span>
-                    <input 
+                    <input
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
@@ -172,8 +171,8 @@ export default function LoginPage({ params }: Props) {
                   </div>
                 </div>
 
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn-primary w-full py-4 text-sm flex items-center justify-center gap-2"
                   disabled={loading || phone.length < 10}
                 >
@@ -182,7 +181,7 @@ export default function LoginPage({ params }: Props) {
                 </button>
               </motion.form>
             ) : (
-              <motion.form 
+              <motion.form
                 key="otp-step"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -191,7 +190,7 @@ export default function LoginPage({ params }: Props) {
                 className="space-y-6"
               >
                 <div>
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setStep('phone')}
                     className="text-[10px] text-indigo-600 font-bold uppercase tracking-widest mb-4 hover:underline"
@@ -199,7 +198,7 @@ export default function LoginPage({ params }: Props) {
                     ← Back to Phone
                   </button>
                   <label className="label-utility">Verification Code</label>
-                  <input 
+                  <input
                     type="text"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -210,8 +209,8 @@ export default function LoginPage({ params }: Props) {
                   />
                 </div>
 
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn-primary w-full py-4 flex items-center justify-center gap-2"
                   disabled={loading || otp.length < 6}
                 >
@@ -222,7 +221,7 @@ export default function LoginPage({ params }: Props) {
             )}
           </AnimatePresence>
         </div>
-        
+
         {/* Invisible Recaptcha Container */}
         <div id="recaptcha-container"></div>
       </div>
