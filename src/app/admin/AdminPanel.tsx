@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { motion } from 'framer-motion';
-import { Plus, Check, X, Users, FileText, Send } from 'lucide-react';
+import { Plus, Check, X, Users, FileText, Send, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { addInviteAction, updateSubmissionStatusAction, adminLogoutAction } from './actions';
@@ -12,16 +12,19 @@ import { LogOut } from 'lucide-react';
 interface Props {
   invites: any[];
   submissions: any[];
+  brands: any[];
 }
 
-export default function AdminPanel({ invites, submissions }: Props) {
-    const [newInvite, setNewInvite] = useState({ mobile: '', name: '', code: '' });
+export default function AdminPanel({ invites, submissions, brands }: Props) {
+    const [newInvite, setNewInvite] = useState({ mobile: '', name: '', code: '', brandId: '' });
     const [loading, setLoading] = useState(false);
     const [tab, setTab] = useState<'invites' | 'submissions'>('invites');
 
     const handleAddInvite = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newInvite.mobile || !newInvite.name) return toast.error('Fill required fields');
+        if (!newInvite.mobile || !newInvite.name || !newInvite.brandId) {
+            return toast.error('Fill required fields (including Brand)');
+        }
 
         setLoading(true);
         try {
@@ -30,10 +33,11 @@ export default function AdminPanel({ invites, submissions }: Props) {
                 mobileNumber: formatted,
                 dealerName: newInvite.name,
                 dealerCode: newInvite.code,
+                brandId: newInvite.brandId,
             });
             if (result.success) {
                 toast.success('Invite created');
-                setNewInvite({ mobile: '', name: '', code: '' });
+                setNewInvite({ mobile: '', name: '', code: '', brandId: '' });
             } else {
                 toast.error('Failed to add invite: ' + result.error);
             }
@@ -99,7 +103,7 @@ export default function AdminPanel({ invites, submissions }: Props) {
                     <div className="space-y-6">
                         <form onSubmit={handleAddInvite} className="card-premium space-y-4">
                             <h3 className="font-bold text-sm">Add New Invitation</h3>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <input 
                                     className="input-premium py-2 text-sm" 
                                     placeholder="Mobile (9876543210)" 
@@ -112,6 +116,22 @@ export default function AdminPanel({ invites, submissions }: Props) {
                                     value={newInvite.name}
                                     onChange={e => setNewInvite({...newInvite, name: e.target.value})}
                                 />
+                                <select
+                                    className="input-premium py-2 text-sm appearance-none"
+                                    value={newInvite.brandId}
+                                    onChange={e => setNewInvite({...newInvite, brandId: e.target.value})}
+                                >
+                                    <option value="">Select Brand</option>
+                                    {brands.map(brand => (
+                                        <option key={brand.id} value={brand.id}>{brand.name}</option>
+                                    ))}
+                                </select>
+                                <input 
+                                    className="input-premium py-2 text-sm" 
+                                    placeholder="Dealer Code (Optional)" 
+                                    value={newInvite.code}
+                                    onChange={e => setNewInvite({...newInvite, code: e.target.value})}
+                                />
                             </div>
                             <button className="btn-primary w-full py-2 text-sm flex items-center justify-center gap-2" disabled={loading}>
                                 <Plus size={16} /> Invite Dealer
@@ -122,7 +142,12 @@ export default function AdminPanel({ invites, submissions }: Props) {
                             {invites.map(invite => (
                                 <div key={invite.id} className="p-4 bg-white rounded-xl border border-slate-100 flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-bold text-slate-800">{invite.dealerName}</p>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <p className="text-sm font-bold text-slate-800">{invite.dealerName}</p>
+                                            <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                                <Building2 size={10} /> {invite.brand.name}
+                                            </span>
+                                        </div>
                                         <p className="text-[10px] text-slate-400 font-mono">{invite.mobileNumber} • {invite.dealerCode}</p>
                                     </div>
                                     <span className={cn("text-[10px] font-bold px-2 py-1 rounded-full", invite.status === 'invited' ? "bg-blue-50 text-blue-600" : "bg-green-50 text-green-600")}>
@@ -139,8 +164,13 @@ export default function AdminPanel({ invites, submissions }: Props) {
                             <div key={sub.id} className="card-premium space-y-4">
                                 <div className="flex justify-between items-start">
                                     <div>
-                                        <h3 className="font-bold text-slate-800">{sub.storeName}</h3>
-                                        <p className="text-[10px] text-slate-500">{sub.address.locality}, {sub.address.city}</p>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <h3 className="font-bold text-slate-800">{sub.storeName}</h3>
+                                            <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                                <Building2 size={10} /> {sub.dealer.brand.name}
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500">{(sub.address as any).locality}, {(sub.address as any).city}</p>
                                     </div>
                                     <span className="text-[10px] font-bold bg-amber-50 text-amber-600 px-2 py-1 rounded-full">
                                         {sub.status}

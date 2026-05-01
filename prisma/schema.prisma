@@ -59,9 +59,9 @@ model StoreSubmission {
 }
 
 model AdminUser {
-  id    String @id @default(cuid())
-  email String @unique
-  role  String @default("reviewer") // admin, reviewer
+  id           String @id @default(cuid())
+  mobileNumber String @unique
+  role         String @default("admin") // admin, reviewer
 }
 
 // NextAuth Models
