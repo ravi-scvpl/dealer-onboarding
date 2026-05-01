@@ -6,8 +6,9 @@ import { motion } from 'framer-motion';
 import { Plus, Check, X, Users, FileText, Send, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
-import { addInviteAction, updateSubmissionStatusAction, adminLogoutAction } from './actions';
-import { LogOut } from 'lucide-react';
+import { addInviteAction, bulkInviteAction, updateSubmissionStatusAction, adminLogoutAction } from './actions';
+import { LogOut, FileSpreadsheet, Download, Upload, Loader2 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface Props {
   invites: any[];
@@ -17,8 +18,67 @@ interface Props {
 
 export default function AdminPanel({ invites, submissions, brands }: Props) {
     const [newInvite, setNewInvite] = useState({ mobile: '', name: '', code: '', brandId: '' });
+    const [bulkBrandId, setBulkBrandId] = useState('');
     const [loading, setLoading] = useState(false);
+    const [bulkLoading, setBulkLoading] = useState(false);
     const [tab, setTab] = useState<'invites' | 'submissions'>('invites');
+
+    const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!bulkBrandId) {
+            toast.error('Please select a Brand for bulk upload');
+            e.target.value = '';
+            return;
+        }
+
+        setBulkLoading(true);
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            try {
+                const dataArray = evt.target?.result;
+                const wb = XLSX.read(dataArray, { type: 'array' });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const rawData = XLSX.utils.sheet_to_json(ws) as any[];
+
+                // Map data to expected format with case-insensitive and whitespace-robust header matching
+                const dealers = rawData.map(row => {
+                    // Normalize keys (trim and lowercase)
+                    const normalizedRow: any = {};
+                    Object.keys(row).forEach(key => {
+                        normalizedRow[key.trim().toLowerCase()] = row[key];
+                    });
+
+                    return {
+                        mobileNumber: String(normalizedRow['mobilenumber'] || normalizedRow['mobile'] || normalizedRow['phone'] || normalizedRow['contact'] || '').trim(),
+                        dealerName: String(normalizedRow['dealername'] || normalizedRow['name'] || normalizedRow['dealer'] || '').trim(),
+                        dealerCode: String(normalizedRow['dealercode'] || normalizedRow['code'] || '').trim(),
+                    };
+                }).filter(d => d.mobileNumber && d.dealerName);
+
+                if (dealers.length === 0) {
+                    toast.error('No valid dealer data found. Please check column headers (mobileNumber, dealerName).');
+                    return;
+                }
+
+                const result = await bulkInviteAction(dealers, bulkBrandId);
+                if (result.success) {
+                    toast.success(`Successfully uploaded ${result.count} invitations`);
+                } else {
+                    toast.error('Bulk upload failed: ' + result.error);
+                }
+            } catch (error) {
+                console.error("Bulk Upload Error:", error);
+                toast.error('Error parsing file');
+            } finally {
+                setBulkLoading(false);
+                e.target.value = '';
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
 
     const handleAddInvite = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -137,6 +197,63 @@ export default function AdminPanel({ invites, submissions, brands }: Props) {
                                 <Plus size={16} /> Invite Dealer
                             </button>
                         </form>
+
+                        <div className="card-premium space-y-4 border-dashed border-2 border-slate-200 bg-slate-50/30">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <FileSpreadsheet className="text-emerald-600" size={18} />
+                                    <h3 className="font-bold text-sm text-slate-800">Bulk Invitation</h3>
+                                </div>
+                                {bulkLoading && <Loader2 className="animate-spin text-indigo-600" size={16} />}
+                            </div>
+                            
+                            <p className="text-[10px] text-slate-500 leading-relaxed">
+                                Upload an Excel (.xlsx) or CSV file with columns: <b>mobileNumber</b> and <b>dealerName</b>. 
+                            </p>
+
+                            <div className="space-y-3">
+                                <select
+                                    className="input-premium py-2 text-xs appearance-none bg-white"
+                                    value={bulkBrandId}
+                                    onChange={e => setBulkBrandId(e.target.value)}
+                                >
+                                    <option value="">Select Brand for Bulk Upload</option>
+                                    {brands.map(brand => (
+                                        <option key={brand.id} value={brand.id}>{brand.name}</option>
+                                    ))}
+                                </select>
+
+                                <div className="flex gap-3">
+                                    <label className={cn(
+                                        "flex-1 btn-primary bg-emerald-600 hover:bg-emerald-700 py-2 text-sm cursor-pointer flex items-center justify-center gap-2",
+                                        (bulkLoading || !bulkBrandId) && "opacity-50 cursor-not-allowed"
+                                    )}>
+                                        <Upload size={16} /> 
+                                        {bulkLoading ? 'Processing...' : 'Upload File'}
+                                        <input 
+                                            type="file" 
+                                            className="hidden" 
+                                            accept=".xlsx, .xls, .csv" 
+                                            onChange={handleBulkUpload}
+                                            disabled={bulkLoading || !bulkBrandId}
+                                        />
+                                    </label>
+                                    
+                                    <button 
+                                        onClick={() => {
+                                            const ws = XLSX.utils.json_to_sheet([{ mobileNumber: '9876543210', dealerName: 'Sample Dealer', dealerCode: 'D123' }]);
+                                            const wb = XLSX.utils.book_new();
+                                            XLSX.utils.book_append_sheet(wb, ws, "Template");
+                                            XLSX.writeFile(wb, "dealer_invite_template.xlsx");
+                                        }}
+                                        className="p-2 border border-slate-200 rounded-xl text-slate-400 hover:text-slate-600 transition-colors"
+                                        title="Download Template"
+                                    >
+                                        <Download size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
 
                         <div className="space-y-2">
                             {invites.map(invite => (

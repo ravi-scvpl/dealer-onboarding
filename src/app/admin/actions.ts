@@ -55,6 +55,36 @@ export async function addInviteAction(data: {
   }
 }
 
+export async function bulkInviteAction(
+  dealers: { mobileNumber: string; dealerName: string; dealerCode?: string }[],
+  brandId: string
+) {
+  try {
+    // Process data to ensure dealer codes exist
+    const data = dealers.map(d => ({
+      mobileNumber: d.mobileNumber.startsWith('+') ? d.mobileNumber : `+91${d.mobileNumber}`,
+      dealerName: d.dealerName,
+      dealerCode: d.dealerCode || 'D' + Math.floor(Math.random() * 1000000),
+      brandId: brandId,
+      status: 'invited',
+    }));
+
+    // We use a transaction or loop for createMany as it's more robust with SQLite/Neon sometimes
+    // But since this is likely Postgres on Neon, createMany is fine.
+    // However, to handle duplicates gracefully (skip existing), we might want to do it in a loop or use skipDuplicates if supported.
+    await prisma.dealerInvite.createMany({
+      data: data,
+      skipDuplicates: true,
+    });
+
+    revalidatePath('/admin');
+    return { success: true, count: data.length };
+  } catch (error: any) {
+    console.error("Bulk Invite Error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 export async function updateSubmissionStatusAction(
   subId: string,
   dealerId: string,
