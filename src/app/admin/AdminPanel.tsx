@@ -10,8 +10,7 @@ import { addInviteAction, bulkInviteAction, updateSubmissionStatusAction, adminL
 import { LogOut, FileSpreadsheet, Download, Upload, Loader2, Tag, Edit2, Trash, Globe, Phone, Mail, MapPin, Briefcase, User, ReceiptText, Camera } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '@/lib/firebase';
+import { uploadToSpaces } from '@/lib/s3';
 
 interface Props {
   invites: any[];
@@ -124,12 +123,16 @@ export default function AdminPanel({ invites, submissions, brands }: Props) {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        if (!brandData.id && !editingBrand) {
+            return toast.error('Please enter ID / Slug first to create a folder');
+        }
+
         setLoading(true);
         try {
-            const fileName = `brands/${Date.now()}_${file.name}`;
-            const storageRef = ref(storage, fileName);
-            await uploadBytes(storageRef, file);
-            const url = await getDownloadURL(storageRef);
+            const ext = file.name.split('.').pop();
+            const folder = brandData.id || editingBrand.id;
+            const fileName = `${folder}/brand_logo_${Date.now()}.${ext}`;
+            const url = await uploadToSpaces(file, fileName);
             setBrandData({ ...brandData, logo: url });
             toast.success('Logo uploaded');
         } catch (error) {

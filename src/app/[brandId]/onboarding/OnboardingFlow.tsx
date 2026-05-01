@@ -21,8 +21,7 @@ import { Layout } from '@/components/Layout';
 import { cn } from '@/lib/utils';
 import { analyzeImageAction, submitOnboardingAction } from './actions';
 import { compressImage } from '@/lib/imageCompression'; // Need to create this helper
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '@/lib/firebase';
+import { uploadToSpaces } from '@/lib/s3';
 import categories from '@/lib/category';
 
 // --- Sub-components ---
@@ -276,19 +275,14 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
 
     setLoading(true);
     try {
-      // Upload images to Firebase Storage
+      // Upload images to DigitalOcean Spaces
       const mediaUrls = await Promise.all(
         images.map(async (img) => {
-          // Generate a unique filename: dealerId/type-timestamp.jpg
-          const timestamp = new Date().getTime();
-          const filename = `dealers/${user.id}/${img.type}-${timestamp}.jpg`;
-          const storageRef = ref(storage, filename);
-
-          // Upload the compressed blob
-          await uploadBytes(storageRef, img.file);
-
-          // Get the permanent download URL
-          const downloadUrl = await getDownloadURL(storageRef);
+          const timestamp = Date.now();
+          const folder = dealerProfile.brandId;
+          const fileName = `${folder}/${dealerProfile.dealerCode}_${img.type}_${timestamp}.jpg`;
+          
+          const downloadUrl = await uploadToSpaces(img.file as File, fileName);
 
           return {
             url: downloadUrl,
