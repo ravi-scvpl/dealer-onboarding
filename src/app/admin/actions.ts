@@ -106,3 +106,63 @@ export async function updateSubmissionStatusAction(
     return { success: false, error: error.message };
   }
 }
+
+export async function addBrandAction(data: any) {
+  try {
+    await prisma.brand.create({
+      data: {
+        id: data.id,
+        name: data.name,
+        logo: data.logo,
+        address: data.address,
+        contactNumber: data.contactNumber,
+        email: data.email,
+        websiteUrl: data.websiteUrl,
+        category: data.category,
+        contactPersonName: data.contactPersonName,
+        billingAddress: data.billingAddress,
+        taxId: data.taxId,
+      },
+    });
+    revalidatePath('/admin');
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function updateBrandAction(id: string, data: any) {
+  try {
+    await prisma.brand.update({
+      where: { id },
+      data: {
+        name: data.name,
+        logo: data.logo,
+        address: data.address,
+        contactNumber: data.contactNumber,
+        email: data.email,
+        websiteUrl: data.websiteUrl,
+        category: data.category,
+        contactPersonName: data.contactPersonName,
+        billingAddress: data.billingAddress,
+        taxId: data.taxId,
+      },
+    });
+    revalidatePath('/admin');
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function deleteBrandAction(id: string) {
+  try {
+    await prisma.brand.delete({
+      where: { id },
+    });
+    revalidatePath('/admin');
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}

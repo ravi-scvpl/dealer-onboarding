@@ -10,12 +10,20 @@ datasource db {
 }
 
 model Brand {
-  id        String   @id @default(cuid())
-  name      String
-  logo      String?
-  createdAt DateTime @default(now())
-  invites   DealerInvite[]
-  dealers   Dealer[]
+  id                String   @id
+  name              String
+  logo              String?
+  address           String?
+  contactNumber     String?
+  email             String?
+  websiteUrl        String?
+  category          String?
+  contactPersonName String?
+  billingAddress    String?
+  taxId             String?
+  createdAt         DateTime @default(now())
+  invites           DealerInvite[]
+  dealers           Dealer[]
 }
 
 model DealerInvite {
