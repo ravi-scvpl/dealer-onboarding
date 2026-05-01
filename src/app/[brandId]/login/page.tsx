@@ -9,7 +9,7 @@ import { Layout } from '@/components/Layout';
 import { auth } from '@/lib/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { setCookie } from 'nookies';
-import { checkInvitationAction } from './actions';
+import { checkInvitationAction, getBrandDetailsAction } from './actions';
 
 interface Props {
   params: Promise<{ brandId: string }>;
@@ -21,6 +21,7 @@ export default function LoginPage({ params }: Props) {
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [loading, setLoading] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [brandDetails, setBrandDetails] = useState<{name: string, logoUrl?: string | null} | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -32,6 +33,12 @@ export default function LoginPage({ params }: Props) {
           maxAge: 60 * 60 * 24, // 1 day
           path: '/',
         });
+        
+        // Fetch brand details
+        const res = await getBrandDetailsAction(brandId);
+        if (res.success && res.brand) {
+          setBrandDetails({ name: res.brand.name, logoUrl: res.brand.logoUrl });
+        }
       }
     };
     initBrand();
@@ -124,10 +131,18 @@ export default function LoginPage({ params }: Props) {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-10"
+          className="text-center mb-10 flex flex-col items-center"
         >
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Welcome Back</h1>
-          <p className="text-slate-500">Securely onboard your store to Dottt</p>
+          {brandDetails?.logoUrl && (
+            <img 
+              src={brandDetails.logoUrl} 
+              alt={brandDetails.name} 
+              className="h-16 min-w-[64px] bg-slate-50 rounded-lg mb-4 object-contain"
+              onError={(e) => console.error("Failed to load logo from URL:", brandDetails.logoUrl)}
+            />
+          )}
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Authorized Partner Login</h1>
+          <p className="text-slate-500">Securely onboard your store to {brandDetails?.name || 'our platform'}</p>
         </motion.div>
 
         <div className="card-premium">

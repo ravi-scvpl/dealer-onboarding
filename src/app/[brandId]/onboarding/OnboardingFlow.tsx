@@ -305,7 +305,7 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
 
       if (result.success) {
         toast.success('Onboarding submitted successfully');
-        router.push('/dashboard');
+        router.push(`/${dealerProfile.brandId}/thank-you`);
       } else {
         toast.error('Submission failed: ' + result.error);
       }
@@ -610,7 +610,7 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
                   <Upload size={32} className="text-slate-300 mb-2" />
                   <span className="text-xs font-semibold text-slate-600">{type.label}</span>
                   {type.mandatory && <span className="text-[10px] text-red-400 mt-1">Mandatory *</span>}
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, type.id)} disabled={uploadingMedia} />
+                  <input type="file" accept="image/*,.heic,.heif,.avif" className="hidden" onChange={(e) => handleImageUpload(e, type.id)} disabled={uploadingMedia} />
                 </label>
               )}
             </div>

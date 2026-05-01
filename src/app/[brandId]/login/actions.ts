@@ -12,9 +12,9 @@ export async function checkInvitationAction(phoneNumber: string, brandId: string
 
     if (existingDealer) {
       if (existingDealer.brandId !== brandId) {
-        return { 
-          success: false, 
-          error: `This number is registered with ${existingDealer.brand.name}. Please use the correct brand URL.` 
+        return {
+          success: false,
+          error: `This number is registered with ${existingDealer.brand.name}. Please use the correct brand URL.`
         };
       }
       return { success: true }; // Existing dealer for this brand
@@ -37,5 +37,18 @@ export async function checkInvitationAction(phoneNumber: string, brandId: string
   } catch (error: any) {
     console.error('Error checking invitation:', error);
     return { success: false, error: 'An error occurred while verifying your invitation.' };
+  }
+}
+
+export async function getBrandDetailsAction(brandId: string) {
+  try {
+    const brand = await prisma.brand.findUnique({
+      where: { id: brandId },
+      select: { name: true, logo: true }
+    });
+    return { success: true, brand };
+  } catch (error) {
+    console.error('Error fetching brand:', error);
+    return { success: false, error: 'Failed to fetch brand details' };
   }
 }

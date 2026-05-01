@@ -27,7 +27,7 @@ export async function analyzeStoreImage(base64Image: string, expectedType: strin
           parts: [
             {
               inlineData: {
-                mimeType: "image/jpeg",
+                mimeType: base64Image.match(/data:(.*?);base64/)?.[1] || "image/jpeg",
                 data: base64Image.split(',')[1] || base64Image,
               },
             },
