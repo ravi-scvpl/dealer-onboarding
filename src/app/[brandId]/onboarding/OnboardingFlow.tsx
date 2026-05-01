@@ -366,64 +366,68 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(handleStep1)} className="space-y-4">
-        <div>
-          <label className="label-utility">Official Store Name</label>
-          <input {...register('storeName')} className="input-premium" placeholder="e.g. Agarwal Electronics" />
-          {errors.storeName && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.storeName.message}</p>}
-        </div>
-        <div>
-          <label className="label-utility">Owner / Contact Name</label>
-          <input {...register('dealerName')} className="input-premium" placeholder="Your full name" />
-          {errors.dealerName && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.dealerName.message}</p>}
-        </div>
-        <div className="relative">
-          <label className="label-utility">Business Category</label>
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
-            <input type="hidden" {...register('category')} />
-            <input
-              value={categorySearch}
-              onChange={(e) => {
-                setCategorySearch(e.target.value);
-                setShowCategoryDropdown(true);
-                setValueStep1('category', e.target.value, { shouldValidate: true });
-              }}
-              onFocus={() => setShowCategoryDropdown(true)}
-              onBlur={() => setTimeout(() => setShowCategoryDropdown(false), 200)}
-              className="input-premium pl-12"
-              placeholder="Search category (e.g., Electronics)"
-            />
+      <form onSubmit={handleSubmit(handleStep1)} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="md:col-span-2">
+            <label className="label-utility">Official Store Name</label>
+            <input {...register('storeName')} className="input-premium" placeholder="e.g. Agarwal Electronics" />
+            {errors.storeName && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.storeName.message}</p>}
+          </div>
+          
+          <div>
+            <label className="label-utility">Owner / Contact Name</label>
+            <input {...register('dealerName')} className="input-premium" placeholder="Your full name" />
+            {errors.dealerName && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.dealerName.message}</p>}
           </div>
 
-          <AnimatePresence>
-            {showCategoryDropdown && filteredCategories.length > 0 && (
-              <motion.ul
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="absolute z-50 w-full bg-white mt-1 rounded-xl shadow-xl border border-slate-100 overflow-hidden max-h-60 overflow-y-auto"
-              >
-                {filteredCategories.map((cat) => (
-                  <li
-                    key={cat.name}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      handleSelectCategory(cat.displayName);
-                    }}
-                    className="px-4 py-3 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-50 last:border-none flex items-start gap-3"
-                  >
-                    <Building2 size={16} className="text-slate-300 mt-0.5 shrink-0" />
-                    <span className="text-slate-700 font-medium">{cat.displayName}</span>
-                  </li>
-                ))}
-              </motion.ul>
-            )}
-          </AnimatePresence>
-          {errors.category && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.category.message}</p>}
+          <div className="relative">
+            <label className="label-utility">Business Category</label>
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+              <input type="hidden" {...register('category')} />
+              <input
+                value={categorySearch}
+                onChange={(e) => {
+                  setCategorySearch(e.target.value);
+                  setShowCategoryDropdown(true);
+                  setValueStep1('category', e.target.value, { shouldValidate: true });
+                }}
+                onFocus={() => setShowCategoryDropdown(true)}
+                onBlur={() => setTimeout(() => setShowCategoryDropdown(false), 200)}
+                className="input-premium pl-12"
+                placeholder="Search category (e.g., Electronics)"
+              />
+            </div>
+
+            <AnimatePresence>
+              {showCategoryDropdown && filteredCategories.length > 0 && (
+                <motion.ul
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute z-50 w-full bg-white mt-1 rounded-xl shadow-xl border border-slate-100 overflow-hidden max-h-60 overflow-y-auto"
+                >
+                  {filteredCategories.map((cat) => (
+                    <li
+                      key={cat.name}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleSelectCategory(cat.displayName);
+                      }}
+                      className="px-4 py-3 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-50 last:border-none flex items-start gap-3"
+                    >
+                      <Building2 size={16} className="text-slate-300 mt-0.5 shrink-0" />
+                      <span className="text-slate-700 font-medium">{cat.displayName}</span>
+                    </li>
+                  ))}
+                </motion.ul>
+              )}
+            </AnimatePresence>
+            {errors.category && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.category.message}</p>}
+          </div>
         </div>
 
-        <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 mt-4">
+        <button type="submit" className="btn-primary w-full md:w-fit md:px-12 flex items-center justify-center gap-2 mt-4 ml-auto">
           Next Step <ChevronRight size={18} />
         </button>
       </form>
@@ -461,41 +465,45 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
 
         <div className="h-px bg-slate-100 my-2" />
 
-        <form onSubmit={handleSubmitStep2(handleStep2)} className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Shop No / Street Name</label>
-            <input {...registerStep2('line1')} className="input-premium" placeholder="Building, Street" />
-            {errors2.line1 && <p className="text-xs text-red-500 mt-1">{errors2.line1.message}</p>}
-          </div>
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Landmark (Optional)</label>
-            <input {...registerStep2('landmark')} className="input-premium" placeholder="Near XYZ circle" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Locality / Area</label>
-            <input {...registerStep2('locality')} className="input-premium" placeholder="Bandra East" />
-            {errors2.locality && <p className="text-xs text-red-500 mt-1">{errors2.locality.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">City</label>
-            <input {...registerStep2('city')} className="input-premium" placeholder="Mumbai" />
-            {errors2.city && <p className="text-xs text-red-500 mt-1">{errors2.city.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">State</label>
-            <input {...registerStep2('state')} className="input-premium" placeholder="Maharashtra" />
-            {errors2.state && <p className="text-xs text-red-500 mt-1">{errors2.state.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Pincode</label>
-            <input {...registerStep2('pincode')} className="input-premium" placeholder="400051" />
-            {errors2.pincode && <p className="text-xs text-red-500 mt-1">{errors2.pincode.message}</p>}
+        <form onSubmit={handleSubmitStep2(handleStep2)} className="space-y-6">
+        <AddressSearch onAddressSelect={handleSelectAddress} />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="md:col-span-2">
+            <label className="label-utility">Street Address / House No.</label>
+            <input {...registerStep2('line1')} className="input-premium" placeholder="Building name, street..." />
+            {errors2.line1 && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors2.line1.message}</p>}
           </div>
 
-          <button type="submit" className="btn-primary col-span-2 flex items-center justify-center gap-2 mt-4">
-            Next Step <ChevronRight size={18} />
-          </button>
-        </form>
+          <div>
+            <label className="label-utility">Locality / Area</label>
+            <input {...registerStep2('locality')} className="input-premium" placeholder="e.g. Sector 12" />
+            {errors2.locality && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors2.locality.message}</p>}
+          </div>
+
+          <div>
+            <label className="label-utility">City</label>
+            <input {...registerStep2('city')} className="input-premium" placeholder="City" />
+            {errors2.city && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors2.city.message}</p>}
+          </div>
+
+          <div>
+            <label className="label-utility">State</label>
+            <input {...registerStep2('state')} className="input-premium" placeholder="State" />
+            {errors2.state && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors2.state.message}</p>}
+          </div>
+
+          <div>
+            <label className="label-utility">Pincode</label>
+            <input {...registerStep2('pincode')} className="input-premium" placeholder="6-digit code" />
+            {errors2.pincode && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors2.pincode.message}</p>}
+          </div>
+        </div>
+
+        <button type="submit" className="btn-primary w-full md:w-fit md:px-12 flex items-center justify-center gap-2 mt-4 ml-auto">
+          Next Step <ChevronRight size={18} />
+        </button>
+      </form>
       </div>
     </motion.div>
   );
