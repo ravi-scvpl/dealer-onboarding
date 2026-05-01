@@ -16,6 +16,7 @@ export async function analyzeImageAction(base64Image: string, type: string): Pro
  */
 export async function submitOnboardingAction(data: {
   dealerId: string;
+  brandId: string;
   storeName: string;
   category: string;
   address: any;
@@ -27,6 +28,7 @@ export async function submitOnboardingAction(data: {
     const submission = await prisma.storeSubmission.create({
       data: {
         dealerId: data.dealerId,
+        brandId: data.brandId,
         storeName: data.storeName,
         category: data.category,
         address: data.address,

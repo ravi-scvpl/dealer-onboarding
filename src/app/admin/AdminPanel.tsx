@@ -10,7 +10,7 @@ import { addInviteAction, bulkInviteAction, updateSubmissionStatusAction, adminL
 import { LogOut, FileSpreadsheet, Download, Upload, Loader2, Tag, Edit2, Trash, Globe, Phone, Mail, MapPin, Briefcase, User, ReceiptText, Camera } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-import { uploadToSpaces } from '@/lib/s3';
+import { uploadImageAction } from '@/lib/uploadAction';
 
 interface Props {
   invites: any[];
@@ -132,9 +132,17 @@ export default function AdminPanel({ invites, submissions, brands }: Props) {
             const ext = file.name.split('.').pop();
             const folder = brandData.id || editingBrand.id;
             const fileName = `${folder}/brand_logo_${Date.now()}.${ext}`;
-            const url = await uploadToSpaces(file, fileName);
-            setBrandData({ ...brandData, logo: url });
-            toast.success('Logo uploaded');
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const result = await uploadImageAction(formData, fileName);
+            if (result.success && result.url) {
+                setBrandData({ ...brandData, logo: result.url });
+                toast.success('Logo uploaded');
+            } else {
+                toast.error('Logo upload failed: ' + result.error);
+            }
         } catch (error) {
             toast.error('Logo upload failed');
         } finally {

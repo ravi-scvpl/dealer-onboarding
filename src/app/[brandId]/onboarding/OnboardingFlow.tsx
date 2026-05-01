@@ -21,7 +21,7 @@ import { Layout } from '@/components/Layout';
 import { cn } from '@/lib/utils';
 import { analyzeImageAction, submitOnboardingAction } from './actions';
 import { compressImage } from '@/lib/imageCompression'; // Need to create this helper
-import { uploadToSpaces } from '@/lib/s3';
+import { uploadImageAction } from '@/lib/uploadAction';
 import categories from '@/lib/category';
 
 // --- Sub-components ---
@@ -282,10 +282,16 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
           const folder = dealerProfile.brandId;
           const fileName = `${folder}/${dealerProfile.dealerCode}_${img.type}_${timestamp}.jpg`;
           
-          const downloadUrl = await uploadToSpaces(img.file as File, fileName);
+          const formData = new FormData();
+          formData.append('file', img.file as File);
+          
+          const result = await uploadImageAction(formData, fileName);
+          if (!result.success || !result.url) {
+            throw new Error(result.error || "Upload failed");
+          }
 
           return {
-            url: downloadUrl,
+            url: result.url,
             type: img.type,
             timestamp: new Date().toISOString()
           };
@@ -294,6 +300,7 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
 
       const result = await submitOnboardingAction({
         dealerId: dealerProfile.id,
+        brandId: dealerProfile.brandId,
         storeName: step1Data.storeName,
         category: step1Data.category,
         address: {

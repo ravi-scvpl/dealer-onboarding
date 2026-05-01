@@ -23,12 +23,18 @@ export default async function OnboardingPage({ params }: Props) {
     where: { userId: user.id },
   });
 
-  // If no profile, create one linked to the selected brand
+  // If the profile exists but the brand doesn't match the current URL context, update it
+  if (dealerProfile && dealerProfile.brandId !== brandId && brandId !== 'default-brand') {
+    dealerProfile = await prisma.dealer.update({
+      where: { id: dealerProfile.id },
+      data: { brandId: brandId }
+    });
+  }
+
+  // If no profile, create one linked to the current brand
   if (!dealerProfile) {
-    const selectedBrandId = brandId || cookieStore.get('selected_brand_id')?.value || 'default-brand';
-    
-    // Check if we have an invitation for this user
-    // (This is a simplified version of the check invitation logic)
+    // Check if we have an invitation for this user's phone (simplified for now)
+    // We'll use the brandId from the URL as the definitive source
     
     dealerProfile = await prisma.dealer.create({
       data: {
@@ -36,7 +42,7 @@ export default async function OnboardingPage({ params }: Props) {
         mobileNumber: '+91' + Math.floor(1000000000 + Math.random() * 9000000000).toString(),
         dealerCode: 'D' + Math.floor(Math.random() * 10000).toString(),
         brand: {
-          connect: { id: selectedBrandId }
+          connect: { id: brandId }
         },
       }
     });
