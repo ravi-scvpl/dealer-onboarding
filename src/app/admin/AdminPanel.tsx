@@ -423,7 +423,7 @@ export default function AdminPanel({ invites, submissions, brands }: Props) {
                             <button 
                                 onClick={() => {
                                     setEditingBrand(null);
-                                    setBrandData({ name: '', logo: '', address: '', contactNumber: '', email: '', websiteUrl: '', category: '', contactPersonName: '', billingAddress: '', taxId: '' });
+                                    setBrandData({ id: '', name: '', logo: '', address: '', contactNumber: '', email: '', websiteUrl: '', category: '', contactPersonName: '', billingAddress: '', taxId: '' });
                                     setShowBrandForm(!showBrandForm);
                                 }}
                                 className="btn-primary py-2 px-4 text-xs flex items-center gap-2"
