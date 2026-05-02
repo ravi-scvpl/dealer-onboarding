@@ -393,22 +393,45 @@ export default function AdminPanel({ invites, submissions, brands }: Props) {
                                     <span className={cn(
                                         "text-[10px] font-bold px-2 py-1 rounded-full",
                                         sub.status === 'pending' ? "bg-amber-50 text-amber-600" :
+                                        sub.status === 'submitted_for_review' ? "bg-blue-50 text-blue-600" :
                                         sub.status === 'approved' ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
                                     )}>
-                                        {sub.status.toUpperCase()}
+                                        {sub.status.replace(/_/g, ' ').toUpperCase()}
                                     </span>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4 mb-4">
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Address</p>
-                                        <p className="text-xs text-slate-600">{sub.line1}, {sub.city}</p>
+                                        <p className="text-xs text-slate-600">
+                                            {(sub.address as any)?.line1}, {(sub.address as any)?.city}
+                                        </p>
                                     </div>
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Category</p>
                                         <p className="text-xs text-slate-600">{sub.category}</p>
                                     </div>
                                 </div>
+
+                                {sub.media && (sub.media as any[]).length > 0 && (
+                                    <div className="mb-4">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Store Media</p>
+                                        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                            {(sub.media as any[]).map((m, idx) => (
+                                                <div key={idx} className="relative flex-shrink-0 group">
+                                                    <img 
+                                                        src={m.url} 
+                                                        alt={m.type} 
+                                                        className="w-32 h-32 object-cover rounded-xl border border-slate-100 shadow-sm"
+                                                    />
+                                                    <span className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md text-white text-[8px] font-bold rounded-md uppercase">
+                                                        {m.type}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="flex gap-2">
                                     <button 
