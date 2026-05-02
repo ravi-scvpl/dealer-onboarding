@@ -279,8 +279,9 @@ export default function OnboardingFlow({ user, dealerProfile }: Props) {
       const mediaUrls = await Promise.all(
         images.map(async (img) => {
           const timestamp = Date.now();
-          const folder = dealerProfile.brandId;
-          const fileName = `${folder}/${dealerProfile.dealerCode}_${img.type}_${timestamp}.jpg`;
+          const brandFolder = dealerProfile.brandId;
+          const dealerFolder = dealerProfile.id;
+          const fileName = `DHGMBDealersInvite/${brandFolder}/${dealerFolder}/${img.type}_${timestamp}.jpg`;
           
           const formData = new FormData();
           formData.append('file', img.file as File);

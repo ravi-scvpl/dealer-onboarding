@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import AdminPanel from './AdminPanel';
 import AdminLogin from './AdminLogin';
 import { prisma } from '@/lib/db';

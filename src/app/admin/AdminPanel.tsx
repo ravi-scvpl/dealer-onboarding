@@ -131,7 +131,7 @@ export default function AdminPanel({ invites, submissions, brands }: Props) {
         try {
             const ext = file.name.split('.').pop();
             const folder = brandData.id || editingBrand.id;
-            const fileName = `${folder}/brand_logo_${Date.now()}.${ext}`;
+            const fileName = `DHGMBDealersInvite/${folder}/logos/brand_logo_${Date.now()}.${ext}`;
             
             const formData = new FormData();
             formData.append('file', file);
