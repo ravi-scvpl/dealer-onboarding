@@ -11,6 +11,7 @@ import { LogOut, FileSpreadsheet, Download, Upload, Loader2, Tag, Edit2, Trash, 
 import * as XLSX from 'xlsx';
 
 import { uploadImageAction } from '@/lib/uploadAction';
+import categories from '@/lib/category';
 
 interface Props {
   invites: any[];
@@ -29,7 +30,7 @@ export default function AdminPanel({ invites, submissions, brands }: Props) {
     const [showBrandForm, setShowBrandForm] = useState(false);
     const [editingBrand, setEditingBrand] = useState<any>(null);
     const [brandData, setBrandData] = useState({
-        id: '', name: '', logo: '', address: '', contactNumber: '', email: '', 
+        id: '', name: '', slug: '', logo: '', address: '', contactNumber: '', email: '', 
         websiteUrl: '', category: '', contactPersonName: '', 
         billingAddress: '', taxId: ''
     });
@@ -123,14 +124,14 @@ export default function AdminPanel({ invites, submissions, brands }: Props) {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (!brandData.id && !editingBrand) {
-            return toast.error('Please enter ID / Slug first to create a folder');
+        if (!brandData.slug && !editingBrand) {
+            return toast.error('Please enter Brand Name first to generate a slug for the folder');
         }
 
         setLoading(true);
         try {
             const ext = file.name.split('.').pop();
-            const folder = brandData.id || editingBrand.id;
+            const folder = brandData.slug || editingBrand.slug || 'brands';
             const fileName = `DHGMBDealersInvite/${folder}/logos/brand_logo_${Date.now()}.${ext}`;
             
             const formData = new FormData();
@@ -152,7 +153,6 @@ export default function AdminPanel({ invites, submissions, brands }: Props) {
 
     const handleBrandSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!brandData.id) return toast.error('ID / Slug is required');
         if (!brandData.name) return toast.error('Brand name is required');
         if (!brandData.logo) return toast.error('Logo is required');
 
@@ -166,7 +166,7 @@ export default function AdminPanel({ invites, submissions, brands }: Props) {
                 toast.success(editingBrand ? 'Brand updated' : 'Brand added');
                 setShowBrandForm(false);
                 setEditingBrand(null);
-                setBrandData({ id: '', name: '', logo: '', address: '', contactNumber: '', email: '', websiteUrl: '', category: '', contactPersonName: '', billingAddress: '', taxId: '' });
+                setBrandData({ id: '', name: '', slug: '', logo: '', address: '', contactNumber: '', email: '', websiteUrl: '', category: '', contactPersonName: '', billingAddress: '', taxId: '' });
             } else {
                 toast.error('Failed: ' + result.error);
             }
@@ -182,6 +182,7 @@ export default function AdminPanel({ invites, submissions, brands }: Props) {
         setBrandData({
             id: brand.id || '',
             name: brand.name || '',
+            slug: brand.slug || '',
             logo: brand.logo || '',
             address: brand.address || '',
             contactNumber: brand.contactNumber || '',
@@ -457,7 +458,7 @@ export default function AdminPanel({ invites, submissions, brands }: Props) {
                             <button 
                                 onClick={() => {
                                     setEditingBrand(null);
-                                    setBrandData({ id: '', name: '', logo: '', address: '', contactNumber: '', email: '', websiteUrl: '', category: '', contactPersonName: '', billingAddress: '', taxId: '' });
+                                    setBrandData({ id: '', name: '', slug: '', logo: '', address: '', contactNumber: '', email: '', websiteUrl: '', category: '', contactPersonName: '', billingAddress: '', taxId: '' });
                                     setShowBrandForm(!showBrandForm);
                                 }}
                                 className="btn-primary py-2 px-4 text-xs flex items-center gap-2"
@@ -472,19 +473,6 @@ export default function AdminPanel({ invites, submissions, brands }: Props) {
                                 <h3 className="font-bold text-sm">{editingBrand ? 'Edit Brand' : 'Create New Brand'}</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">ID / Slug (e.g. jkcement) *</label>
-                                        <div className="relative">
-                                            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                                            <input 
-                                                className="input-premium py-2 pl-9 text-sm disabled:opacity-50" 
-                                                placeholder="jkcement" 
-                                                value={brandData.id}
-                                                onChange={e => setBrandData({...brandData, id: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '')})}
-                                                disabled={!!editingBrand}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Brand Name *</label>
                                         <div className="relative">
                                             <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
@@ -492,7 +480,23 @@ export default function AdminPanel({ invites, submissions, brands }: Props) {
                                                 className="input-premium py-2 pl-9 text-sm" 
                                                 placeholder="e.g. JK Cement" 
                                                 value={brandData.name}
-                                                onChange={e => setBrandData({...brandData, name: e.target.value})}
+                                                onChange={e => {
+                                                    const name = e.target.value;
+                                                    const slug = /\s/.test(name) ? name.toLowerCase().split(" ").join("_") : name.toLowerCase();
+                                                    setBrandData({...brandData, name, slug});
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Slug (Auto-generated)</label>
+                                        <div className="relative">
+                                            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                            <input 
+                                                className="input-premium py-2 pl-9 text-sm bg-slate-50" 
+                                                placeholder="slug" 
+                                                value={brandData.slug}
+                                                readOnly
                                             />
                                         </div>
                                     </div>
@@ -561,12 +565,18 @@ export default function AdminPanel({ invites, submissions, brands }: Props) {
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Category</label>
                                         <div className="relative">
                                             <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                                            <input 
-                                                className="input-premium py-2 pl-9 text-sm" 
-                                                placeholder="e.g. Construction" 
+                                            <select 
+                                                className="input-premium py-2 pl-9 text-sm appearance-none bg-white" 
                                                 value={brandData.category}
                                                 onChange={e => setBrandData({...brandData, category: e.target.value})}
-                                            />
+                                            >
+                                                <option value="">Select Category</option>
+                                                {categories.map((cat: any) => (
+                                                    <option key={cat.name} value={cat.displayName}>
+                                                        {cat.displayName}
+                                                    </option>
+                                                ))}
+                                            </select>
                                         </div>
                                     </div>
                                     <div className="space-y-1">

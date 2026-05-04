@@ -94,7 +94,7 @@ const step1Schema = z.object({
   storeName: z.string()
     .min(3, 'Store name is too short')
     .max(100, 'Store name is too long')
-    .refine(val => !/(http|https|www|.com|.in)/.test(val.toLowerCase()), 'Website URLs not allowed in name')
+    .refine(val => !/(https?:\/\/|www\.|\.com|\.in$|\.in\s)/.test(val.toLowerCase()), 'Website URLs not allowed in name')
     .refine(val => !/\d{10}/.test(val), 'Phone numbers not allowed in name'),
   dealerName: z.string().min(2, 'Name is too short'),
   category: z.string().min(1, 'Primary category is required'),

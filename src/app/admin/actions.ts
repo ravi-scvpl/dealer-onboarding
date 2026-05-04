@@ -112,6 +112,7 @@ export async function addBrandAction(data: any) {
     await prisma.brand.create({
       data: {
         id: data.id,
+        slug: data.slug,
         name: data.name,
         logo: data.logo,
         address: data.address,
@@ -137,6 +138,7 @@ export async function updateBrandAction(id: string, data: any) {
       where: { id },
       data: {
         name: data.name,
+        slug: data.slug,
         logo: data.logo,
         address: data.address,
         contactNumber: data.contactNumber,
